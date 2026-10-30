@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multi Person Age Calculator</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 20px;
+    background: linear-gradient(135deg,#141e30,#425bd5);
+    font-family: Arial,sans-serif;
+}
+
+.container {
+    max-width: 650px;
+    margin: auto;
+    background: white;
+    padding: 22px;
+    border-radius: 18px;
+}
+
+h2 {
+    text-align: center;
+    color: #3446a0;
+}
+
+h3 {
+    color: #3446a0;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    margin: 7px 0;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+button {
+    border: 0;
+    padding: 11px;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    margin: 4px 2px;
+    font-size: 14px;
+}
+
+.add {
+    background: #425bd5;
+    width: 100%;
+}
+
+.backup {
+    background: #159447;
+    width: 48%;
+}
+
+.restore {
+    background: #e99a18;
+    width: 48%;
+}
+
+.edit {
+    background: #e99a18;
+}
+
+.delete {
+    background: #e53935;
+}
+
+.person {
+    background: #f2f4ff;
+    border-left: 5px solid #425bd5;
+    padding: 15px;
+    margin-top: 15px;
+    border-radius: 10px;
+    overflow-wrap: anywhere;
+}
+
+.person h3 {
+    color: #3446a0;
+}
+
+.age {
+    background: #e2f8ec;
+    padding: 12px;
+    border-radius: 8px;
+    line-height: 2;
+    margin-top: 10px;
+}
+
+.empty {
+    text-align: center;
+    color: #888;
+    padding: 20px;
+}
+
+.backup-area {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 15px;
+}
+
+button:active {
+    opacity: 0.8;
+}
+
+@media(max-width:400px) {
+    body {
+        padding: 10px;
+    }
+
+    .container {
+        padding: 15px;
+    }
+
+    .backup-area {
+        flex-direction: column;
+    }
+
+    .backup,
+    .restore {
+        width: 100%;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>🎂 Multi Person Age Calculator By JP</h2>
+
+<h3>নতুন ব্যক্তির তথ্য যোগ করুন</h3>
+
+<input
+type="text"
+id="name"
+placeholder="ব্যক্তির নাম লিখুন"
+maxlength="100"
+>
+
+<input
+type="date"
+id="dob"
+>
+
+<button class="add" id="saveButton" onclick="savePerson()">
+➕ Save Person
+</button>
+
+<h3>📦 Backup & Restore</h3>
+
+<div class="backup-area">
+
+<button class="backup" onclick="exportBackup()">
+📥 Export Backup
+</button>
+
+<button class="restore" onclick="document.getElementById('importFile').click()">
+📤 Import Backup
+</button>
+
+</div>
+
+<input
+type="file"
+id="importFile"
+accept=".json,application/json"
+style="display:none"
+onchange="importBackup(event)"
+>
+
+<h3>📋 Saved Person List</h3>
+
+<div id="peopleList"></div>
+
+</div>
+
+<script>
+
+// Load Saved Data
+
+let people = [];
+
+try {
+    const saved = JSON.parse(
+        localStorage.getItem("allPeople") || "[]"
+    );
+
+    if (Array.isArray(saved)) {
+        people = saved;
+    }
+} catch (error) {
+    people = [];
+}
+
+let editId = null;
+
+
+// Save Data
+
+function saveData() {
+
+    try {
+        localStorage.setItem(
+            "allPeople",
+            JSON.stringify(people)
+        );
+        return true;
+    } catch(error) {
+        alert("Storage Full! Backup নিয়ে কিছু তথ্য মুছে ফেলুন।");
+        return false;
+    }
+
+}
+
+
+// Validate Date
+
+function validDate(dob) {
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+        return false;
+    }
+
+    const [y,m,d] = dob.split("-").map(Number);
+
+    const date = new Date(y,m-1,d);
+
+    return (
+        date.getFullYear() === y &&
+        date.getMonth() === m-1 &&
+        date.getDate() === d &&
+        date <= new Date()
+    );
+
+}
+
+
+// Save Person
+
+function savePerson() {
+
+    let name = document.getElementById("name").value.trim();
+
+    let dob = document.getElementById("dob").value;
+
+    if (!name || !dob) {
+        alert("নাম ও জন্মতারিখ দিন");
+        return;
+    }
+
+    if (!validDate(dob)) {
+        alert("সঠিক জন্মতারিখ দিন");
+        return;
+    }
+
+    if (editId !== null) {
+
+        const person = people.find(p => p.id === editId);
+
+        if (!person) {
+            alert("ব্যক্তির তথ্য পাওয়া যায়নি");
+            editId = null;
+            return;
+        }
+
+        const oldName = person.name;
+        const oldDob = person.dob;
+
+        person.name = name;
+        person.dob = dob;
+
+        if (!saveData()) {
+            person.name = oldName;
+            person.dob = oldDob;
+            return;
+        }
+
+        editId = null;
+
+    } else {
+
+        const newPerson = {
+            id: Date.now() + Math.random(),
+            name: name,
+            dob: dob
+        };
+
+        people.push(newPerson);
+
+        if (!saveData()) {
+            people.pop();
+            return;
+        }
+
+    }
+
+    document.getElementById("name").value = "";
+    document.getElementById("dob").value = "";
+
+    document.getElementById("saveButton").innerText =
+        "➕ Save Person";
+
+    showPeople();
+
+}
+
+
+// Calculate Age
+
+function calculateAge(dob) {
+
+    const birth = new Date(dob + "T00:00:00");
+
+    const now = new Date();
+
+    let y = now.getFullYear() - birth.getFullYear();
+
+    let m = now.getMonth() - birth.getMonth();
+
+    let d = now.getDate() - birth.getDate();
+
+    if (d < 0) {
+
+        m--;
+
+        d += new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            0
+        ).getDate();
+
+    }
+
+    if (m < 0) {
+
+        y--;
+
+        m += 12;
+
+    }
+
+    const diff = Math.max(0, now.getTime() - birth.getTime());
+
+    return {
+
+        y,
+        m,
+        d,
+
+        totalDays: Math.floor(diff / 86400000),
+
+        totalHours: Math.floor(diff / 3600000),
+
+        totalMinutes: Math.floor(diff / 60000),
+
+        totalSeconds: Math.floor(diff / 1000)
+
+    };
+
+}
+
+
+// Show People
+
+function showPeople() {
+
+    const list = document.getElementById("peopleList");
+
+    if (people.length === 0) {
+
+        list.innerHTML =
+            '<div class="empty">এখনো কেউ Save করা হয়নি</div>';
+
+        return;
+
+    }
+
+    list.innerHTML = "";
+
+    people.forEach(p => {
+
+        const a = calculateAge(p.dob);
+
+        const person = document.createElement("div");
+
+        person.className = "person";
+
+        const heading = document.createElement("h3");
+
+        heading.textContent = "👤 " + p.name;
+
+        person.appendChild(heading);
+
+        const dobText = document.createElement("p");
+
+        dobText.textContent = "জন্মতারিখ: " + p.dob;
+
+        person.appendChild(dobText);
+
+        const age = document.createElement("div");
+
+        age.className = "age";
+
+        age.innerHTML = `
+            <b>বর্তমান বয়স:</b><br>
+            ${a.y} বছর ${a.m} মাস ${a.d} দিন
+            <hr>
+            মোট দিন: ${a.totalDays}<br>
+            মোট ঘণ্টা: ${a.totalHours}<br>
+            মোট মিনিট: ${a.totalMinutes}<br>
+            মোট সেকেন্ড: ${a.totalSeconds}
+        `;
+
+        person.appendChild(age);
+
+        const editBtn = document.createElement("button");
+
+        editBtn.className = "edit";
+
+        editBtn.textContent = "✏️ Edit";
+
+        editBtn.onclick = () => editPerson(p.id);
+
+        person.appendChild(editBtn);
+
+        const deleteBtn = document.createElement("button");
+
+        deleteBtn.className = "delete";
+
+        deleteBtn.textContent = "🗑️ Delete";
+
+        deleteBtn.onclick = () => deletePerson(p.id);
+
+        person.appendChild(deleteBtn);
+
+        list.appendChild(person);
+
+    });
+
+}
+
+
+// Edit Person
+
+function editPerson(id) {
+
+    const p = people.find(x => x.id === id);
+
+    if (!p) return;
+
+    document.getElementById("name").value = p.name;
+
+    document.getElementById("dob").value = p.dob;
+
+    editId = id;
+
+    document.getElementById("saveButton").innerText =
+        "💾 Update Person";
+
+    window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+    });
+
+}
+
+
+// Delete Person
+
+function deletePerson(id) {
+
+    if (confirm("এই ব্যক্তির তথ্য মুছে ফেলতে চান?")) {
+
+        const oldPeople = people;
+
+        people = people.filter(p => p.id !== id);
+
+        if (!saveData()) {
+            people = oldPeople;
+            return;
+        }
+
+        if (editId === id) {
+            editId = null;
+
+            document.getElementById("name").value = "";
+
+            document.getElementById("dob").value = "";
+
+            document.getElementById("saveButton").innerText =
+                "➕ Save Person";
+        }
+
+        showPeople();
+
+    }
+
+}
+
+
+// Export Backup
+
+function exportBackup() {
+
+    if (people.length === 0) {
+        alert("Backup করার মতো কোনো তথ্য নেই");
+        return;
+    }
+
+    const data = JSON.stringify(people, null, 2);
+
+    const blob = new Blob(
+        [data],
+        { type: "application/json" }
+    );
+
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+
+    a.href = url;
+
+    a.download = "Age_Calculator_Backup.json";
+
+    document.body.appendChild(a);
+
+    a.click();
+
+    a.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    alert("✅ Backup সফলভাবে Download হয়েছে!");
+
+}
+
+
+// Import Backup
+
+function importBackup(event) {
+
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+
+        alert("Backup File 5 MB-এর বেশি হতে পারবে না");
+
+        event.target.value = "";
+
+        return;
+
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+
+        try {
+
+            const imported = JSON.parse(e.target.result);
+
+            if (!Array.isArray(imported)) {
+                throw new Error("Invalid backup");
+            }
+
+            const validPeople = imported.filter(p => {
+
+                return (
+                    p &&
+                    Number.isFinite(p.id) &&
+                    typeof p.name === "string" &&
+                    p.name.trim().length > 0 &&
+                    p.name.length <= 100 &&
+                    typeof p.dob === "string" &&
+                    validDate(p.dob)
+                );
+
+            });
+
+            if (validPeople.length === 0) {
+
+                alert("Backup File-এ সঠিক কোনো তথ্য পাওয়া যায়নি");
+
+                return;
+
+            }
+
+            let added = 0;
+
+            validPeople.forEach(p => {
+
+                const exists = people.some(
+                    old => old.id === p.id
+                );
+
+                if (!exists) {
+
+                    people.push({
+                        id: p.id,
+                        name: p.name.trim(),
+                        dob: p.dob
+                    });
+
+                    added++;
+
+                }
+
+            });
+
+            if (added === 0) {
+
+                alert("নতুন কোনো তথ্য পাওয়া যায়নি। সব তথ্য আগে থেকেই আছে।");
+
+                return;
+
+            }
+
+            if (!saveData()) {
+
+                alert("Storage-এ পর্যাপ্ত জায়গা নেই।");
+
+                return;
+
+            }
+
+            editId = null;
+
+            document.getElementById("name").value = "";
+
+            document.getElementById("dob").value = "";
+
+            document.getElementById("saveButton").innerText =
+                "➕ Save Person";
+
+            showPeople();
+
+            alert(
+                "✅ " + added +
+                " জনের তথ্য সফলভাবে Import হয়েছে!"
+            );
+
+        } catch(error) {
+
+            alert("❌ ভুল Backup File! সঠিক JSON ফাইল নির্বাচন করুন।");
+
+        }
+
+        event.target.value = "";
+
+    };
+
+    reader.readAsText(file);
+
+}
+
+
+// Update Age Every Second
+
+setInterval(showPeople, 1000);
+
+
+// Initial Display
+
+showPeople();
+
+</script>
+
+</body>
+</html>
